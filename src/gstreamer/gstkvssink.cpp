@@ -249,6 +249,7 @@ void kinesis_video_producer_init(GstKvsSink *kvssink)
     // This needs to happen after we've read in ALL of the properties
     if (!kvssink->disable_buffer_clipping)
     {
+        LOG_INFO("Disabling buffer clipping");
         gst_collect_pads_set_clip_function(kvssink->collect,
                                            GST_DEBUG_FUNCPTR(gst_collect_pads_clip_running_time), kvssink);
     }
@@ -958,6 +959,9 @@ static gboolean
 gst_kvs_sink_handle_sink_event(GstCollectPads *pads,
                                GstCollectData *track_data, GstEvent *event, gpointer user_data)
 {
+
+    LOG_INFO("[gst_kvs_sink_handle_sink_event] Handling event %s", GST_EVENT_TYPE_NAME(event));
+
     GstKvsSink *kvssink = GST_KVS_SINK(user_data);
     auto data = kvssink->data;
     GstKvsSinkTrackData *kvs_sink_track_data = (GstKvsSinkTrackData *)track_data;
@@ -1123,6 +1127,8 @@ gst_kvs_sink_handle_buffer(GstCollectPads *pads,
 
     info.data = NULL;
 
+    LOG_DEBUG("[gst_kvs_sink_handle_buffer] Start");
+
     // eos reached
     if (buf == NULL && track_data == NULL)
     {
@@ -1136,7 +1142,6 @@ gst_kvs_sink_handle_buffer(GstCollectPads *pads,
         ret = GST_FLOW_EOS;
         goto CleanUp;
     }
-    LOG_DEBUG("Hello from gst_kvs_sink_handle_buffer");
 
     if (STATUS_FAILED(stream_status))
     {
@@ -1233,6 +1238,7 @@ gst_kvs_sink_handle_buffer(GstCollectPads *pads,
         buf->pts += data->producer_start_time - data->first_pts;
     }
 
+    LOG_DEBUG("gst_kvs_sink_handle_buffer::put_frame");
     put_frame(data->kinesis_video_stream, info.data, info.size,
               std::chrono::nanoseconds(buf->pts),
               std::chrono::nanoseconds(buf->dts), kinesis_video_flags, track_id, data->frame_count);
@@ -1348,6 +1354,7 @@ CleanUp:
 static void
 gst_kvs_sink_release_pad(GstElement *element, GstPad *pad)
 {
+    LOG_INFO("[gst_kvs_sink_release_pad] releasing pad!")
     GstKvsSink *kvssink = GST_KVS_SINK(GST_PAD_PARENT(pad));
     GSList *walk;
 
@@ -1364,10 +1371,12 @@ gst_kvs_sink_release_pad(GstElement *element, GstPad *pad)
             if (kvs_sink_track_data->track_type == MKV_TRACK_INFO_TYPE_VIDEO)
             {
                 kvssink->num_video_streams--;
+                LOG_INFO("[gst_kvs_sink_release_pad] released video pad!")
             }
             else if (kvs_sink_track_data->track_type == MKV_TRACK_INFO_TYPE_AUDIO)
             {
                 kvssink->num_audio_streams--;
+                LOG_INFO("[gst_kvs_sink_release_pad] released audio pad!")
             }
         }
     }
@@ -1390,6 +1399,7 @@ init_track_data(GstKvsSink *kvssink)
     for (walk = kvssink->collect->data; walk != NULL; walk = g_slist_next(walk))
     {
         GstKvsSinkTrackData *kvs_sink_track_data = (GstKvsSinkTrackData *)walk->data;
+        LOG_INFO("[init_track_data] kvs_sink_track_data->track_type: " << kvs_sink_track_data->track_type);
 
         if (kvs_sink_track_data->track_type == MKV_TRACK_INFO_TYPE_VIDEO)
         {
@@ -1427,6 +1437,7 @@ init_track_data(GstKvsSink *kvssink)
 
             if (kvssink->data->media_type == AUDIO_VIDEO)
             {
+                LOG_INFO("[init_track_data] audio_video!");
                 kvs_sink_track_data->track_id = KVS_SINK_DEFAULT_AUDIO_TRACKID;
             }
 
@@ -1437,17 +1448,20 @@ init_track_data(GstKvsSink *kvssink)
             media_type = gst_structure_get_name(gst_caps_get_structure(caps, 0));
             if (strncmp(media_type, GSTREAMER_MEDIA_TYPE_AAC, MAX_GSTREAMER_MEDIA_TYPE_LEN) == 0)
             {
+                LOG_INFO("[init_track_data] audio media_type: AAC");
                 // default codec id is for aac audio.
                 audio_content_type = g_strdup(MKV_AAC_CONTENT_TYPE);
             }
             else if (strncmp(media_type, GSTREAMER_MEDIA_TYPE_ALAW, MAX_GSTREAMER_MEDIA_TYPE_LEN) == 0)
             {
+                LOG_INFO("[init_track_data] audio media_type: ALAW");
                 g_free(kvssink->audio_codec_id);
                 kvssink->audio_codec_id = g_strdup(DEFAULT_AUDIO_CODEC_ID_PCM);
                 audio_content_type = g_strdup(MKV_ALAW_CONTENT_TYPE);
             }
             else if (strncmp(media_type, GSTREAMER_MEDIA_TYPE_MULAW, MAX_GSTREAMER_MEDIA_TYPE_LEN) == 0)
             {
+                LOG_INFO("[init_track_data] audio media_type: MULAW");
                 g_free(kvssink->audio_codec_id);
                 kvssink->audio_codec_id = g_strdup(DEFAULT_AUDIO_CODEC_ID_PCM);
                 audio_content_type = g_strdup(MKV_MULAW_CONTENT_TYPE);
@@ -1473,6 +1487,7 @@ init_track_data(GstKvsSink *kvssink)
         kvssink->content_type = g_strdup(video_content_type);
         break;
     }
+    LOG_INFO("[init_track_data] content_type: " << kvssink->content_type);
 
     g_free(video_content_type);
     g_free(audio_content_type);
@@ -1481,6 +1496,8 @@ init_track_data(GstKvsSink *kvssink)
 static GstStateChangeReturn
 gst_kvs_sink_change_state(GstElement *element, GstStateChange transition)
 {
+    LOG_INFO("[gst_kvs_sink_change_state] transition: " << transition);
+
     GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
     GstKvsSink *kvssink = GST_KVS_SINK(element);
     auto data = kvssink->data;
@@ -1514,9 +1531,11 @@ gst_kvs_sink_change_state(GstElement *element, GstStateChange transition)
         }
         break;
     case GST_STATE_CHANGE_READY_TO_PAUSED:
+        LOG_INFO("[gst_kvs_sink_change_state] Calling gst_collect_pads_start");
         gst_collect_pads_start(kvssink->collect);
         break;
     case GST_STATE_CHANGE_PAUSED_TO_READY:
+        LOG_INFO("[gst_kvs_sink_change_state] Calling gst_collect_pads_stop");
         gst_collect_pads_stop(kvssink->collect);
         break;
     default:
