@@ -960,7 +960,7 @@ gst_kvs_sink_handle_sink_event(GstCollectPads *pads,
                                GstCollectData *track_data, GstEvent *event, gpointer user_data)
 {
 
-    LOG_INFO("[gst_kvs_sink_handle_sink_event] Handling event %s", GST_EVENT_TYPE_NAME(event));
+    LOG_INFO("[gst_kvs_sink_handle_sink_event] Handling event" << GST_EVENT_TYPE_NAME(event));
 
     GstKvsSink *kvssink = GST_KVS_SINK(user_data);
     auto data = kvssink->data;
@@ -1354,7 +1354,7 @@ CleanUp:
 static void
 gst_kvs_sink_release_pad(GstElement *element, GstPad *pad)
 {
-    LOG_INFO("[gst_kvs_sink_release_pad] releasing pad!")
+    LOG_INFO("[gst_kvs_sink_release_pad] releasing pad!");
     GstKvsSink *kvssink = GST_KVS_SINK(GST_PAD_PARENT(pad));
     GSList *walk;
 
@@ -1371,12 +1371,12 @@ gst_kvs_sink_release_pad(GstElement *element, GstPad *pad)
             if (kvs_sink_track_data->track_type == MKV_TRACK_INFO_TYPE_VIDEO)
             {
                 kvssink->num_video_streams--;
-                LOG_INFO("[gst_kvs_sink_release_pad] released video pad!")
+                LOG_INFO("[gst_kvs_sink_release_pad] released video pad!");
             }
             else if (kvs_sink_track_data->track_type == MKV_TRACK_INFO_TYPE_AUDIO)
             {
                 kvssink->num_audio_streams--;
-                LOG_INFO("[gst_kvs_sink_release_pad] released audio pad!")
+                LOG_INFO("[gst_kvs_sink_release_pad] released audio pad!");
             }
         }
     }
